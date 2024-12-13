@@ -2420,6 +2420,39 @@ class GenericMap(NDData):
         axes.add_patch(quad)
         return quad
 
+    def _calculate_contour_levels_by_area(self, levels):
+        """
+        Calculate contour levels based on area covered.
+        Parameters
+        ----------
+        levels : array_like
+            An array-like object specifying the percentages of the total area to be contained within the generated contour levels.
+            This can be a single value or an array of values representing the desired percentages, where each value should be in the range [0, 1].
+
+        Returns
+        -------
+        thresholds : ndarray
+            An array of threshold values representing the data values below which the specified percentages of the total area are contained.
+            The length of this array is equal to the length of the input `levels`.
+
+        Notes
+        -----
+        This function calculates contour levels based on the area contained within them relative to the maximum value in the data.
+        It normalizes the data, sorts the normalized values, calculates the cumulative sum, and finds thresholds corresponding to the specified percentages of the total area.
+        The thresholds are then returned as an array.
+        """
+        # Derived from a source at https://gist.github.com/settwi/5d3f34b79843df00c2058ec1d49da2ea.
+        normalized_data = (self.data - np.nanmin(self.data)) / (np.nanmax(self.data) - np.nanmin(self.data))
+        sorted_data = np.sort(normalized_data.flatten())[::-1]
+
+        cumulative_sum = np.cumsum(sorted_data)
+        cumulative_sum /= cumulative_sum.max()
+
+        indices = np.searchsorted(cumulative_sum, levels)
+        thresholds = np.sort(sorted_data[indices])
+
+        return thresholds
+
     def _process_levels_arg(self, levels):
         """
         Accept a percentage or dimensionless or map unit input for contours.
@@ -2823,7 +2856,7 @@ class GenericMap(NDData):
         contours = [self.wcs.array_index_to_world(c[:, 0], c[:, 1]) for c in contours]
         return contours
 
-    def find_contours(self, level, method='contourpy', **kwargs):
+    def find_contours(self, level, method='contourpy', area_based=False,**kwargs):
         """
         Returns coordinates of the contours for a given level value.
 
@@ -2839,6 +2872,12 @@ class GenericMap(NDData):
             Determines which contouring method is used and should
             be specified as either 'contourpy' or 'skimage'.
             Defaults to 'contourpy'.
+        area_based : bool, optional
+            If `True`, the contour level is interpreted as the fraction of
+            the total area of the map data. The contour is drawn at the value
+            that corresponds to the specified fraction of area. If `False`,
+            the contour is drawn at the specified level value.
+            Defaults to `False`.
         kwargs :
             Additional keyword arguments passed to either :func:`contourpy.contour_generator`
             or :func:`skimage.measure.find_contours`, depending on the value of the ``method`` argument.
@@ -2874,7 +2913,11 @@ class GenericMap(NDData):
         :func:`contourpy.contour_generator`
         :func:`skimage.measure.find_contours`
         """
-        level = self._process_levels_arg(level)
+        if area_based:
+            level = self._calculate_contour_levels_by_area(level)
+        else:
+            level = self._process_levels_arg(level)
+
         if level.size != 1:
             raise ValueError("level must be a single scalar value")
         else:
