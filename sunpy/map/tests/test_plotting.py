@@ -234,6 +234,13 @@ def test_draw_contours_aia_fill(aia171_test_map):
 
 
 @figure_test
+def test_draw_contours_area_based_contour(aia171_test_map):
+    levels = [0.05, 0.3, 0.5, 0.8]
+    aia171_test_map.plot()
+    aia171_test_map.draw_contours(levels, fill=True)
+
+
+@figure_test
 def test_heliographic_peek(heliographic_test_map):
     heliographic_test_map.peek()
 

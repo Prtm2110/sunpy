@@ -2442,9 +2442,16 @@ class GenericMap(NDData):
         The thresholds are then returned as an array.
         """
         # Derived from a source at https://gist.github.com/settwi/5d3f34b79843df00c2058ec1d49da2ea.
+        levels = np.atleast_1d(levels)
+
+        if hasattr(levels, 'unit'):
+            if self.unit is not None:
+                raise TypeError("The levels argument has no unit attribute, "
+                                "it should be an Astropy Quantity object.")
+
         normalized_data = (self.data - np.nanmin(self.data)) / (np.nanmax(self.data) - np.nanmin(self.data))
         sorted_data = np.sort(normalized_data.flatten())[::-1]
-
+        sorted_data = sorted_data[~np.isnan(sorted_data)]
         cumulative_sum = np.cumsum(sorted_data)
         cumulative_sum /= cumulative_sum.max()
 
@@ -2557,11 +2564,11 @@ class GenericMap(NDData):
         contour_args = self._update_contour_args(contour_args)
 
         axes = self._check_axes(axes)
-        
+
         if area_based:
-            level = self._calculate_contour_levels_by_area(level)
+            levels = self._calculate_contour_levels_by_area(levels)
         else:
-            level = self._process_levels_arg(level)
+            levels = self._process_levels_arg(levels)
 
         # Pixel indices
         y, x = np.indices(self.data.shape)
