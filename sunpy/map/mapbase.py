@@ -2450,7 +2450,6 @@ class GenericMap(NDData):
 
         indices = np.searchsorted(cumulative_sum, levels)
         thresholds = np.sort(sorted_data[indices])
-
         return thresholds
 
     def _process_levels_arg(self, levels):
