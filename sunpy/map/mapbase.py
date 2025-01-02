@@ -2525,7 +2525,7 @@ class GenericMap(NDData):
         return contour_args
 
 
-    def draw_contours(self, levels, axes=None, *, fill=False, **contour_args):
+    def draw_contours(self, levels, axes=None, *, fill=False, area_based=False, **contour_args):
         """
         Draw contours of the data.
 
@@ -2557,7 +2557,11 @@ class GenericMap(NDData):
         contour_args = self._update_contour_args(contour_args)
 
         axes = self._check_axes(axes)
-        levels = self._process_levels_arg(levels)
+        
+        if area_based:
+            level = self._calculate_contour_levels_by_area(level)
+        else:
+            level = self._process_levels_arg(level)
 
         # Pixel indices
         y, x = np.indices(self.data.shape)
@@ -2855,7 +2859,7 @@ class GenericMap(NDData):
         contours = [self.wcs.array_index_to_world(c[:, 0], c[:, 1]) for c in contours]
         return contours
 
-    def find_contours(self, level, method='contourpy', area_based=False,**kwargs):
+    def find_contours(self, level, method='contourpy',**kwargs):
         """
         Returns coordinates of the contours for a given level value.
 
@@ -2912,10 +2916,7 @@ class GenericMap(NDData):
         :func:`contourpy.contour_generator`
         :func:`skimage.measure.find_contours`
         """
-        if area_based:
-            level = self._calculate_contour_levels_by_area(level)
-        else:
-            level = self._process_levels_arg(level)
+        level = self._process_levels_arg(level)
 
         if level.size != 1:
             raise ValueError("level must be a single scalar value")
