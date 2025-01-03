@@ -2420,45 +2420,6 @@ class GenericMap(NDData):
         axes.add_patch(quad)
         return quad
 
-    def _calculate_contour_levels_by_area(self, levels):
-        """
-        Calculate contour levels based on area covered.
-        Parameters
-        ----------
-        levels : array_like
-            An array-like object specifying the percentages of the total area to be contained within the generated contour levels.
-            This can be a single value or an array of values representing the desired percentages, where each value should be in the range [0, 1].
-
-        Returns
-        -------
-        thresholds : ndarray
-            An array of threshold values representing the data values below which the specified percentages of the total area are contained.
-            The length of this array is equal to the length of the input `levels`.
-
-        Notes
-        -----
-        This function calculates contour levels based on the area contained within them relative to the maximum value in the data.
-        It normalizes the data, sorts the normalized values, calculates the cumulative sum, and finds thresholds corresponding to the specified percentages of the total area.
-        The thresholds are then returned as an array.
-        """
-        # Derived from a source at https://gist.github.com/settwi/5d3f34b79843df00c2058ec1d49da2ea.
-        levels = np.atleast_1d(levels)
-
-        if hasattr(levels, 'unit'):
-            if self.unit is not None:
-                raise TypeError("The levels argument has no unit attribute, "
-                                "it should be an Astropy Quantity object.")
-
-        normalized_data = (self.data - np.nanmin(self.data)) / (np.nanmax(self.data) - np.nanmin(self.data))
-        sorted_data = np.sort(normalized_data.flatten())[::-1]
-        sorted_data = sorted_data[~np.isnan(sorted_data)]
-        cumulative_sum = np.cumsum(sorted_data)
-        cumulative_sum /= cumulative_sum.max()
-
-        indices = np.searchsorted(cumulative_sum, levels)
-        thresholds = np.sort(sorted_data[indices])
-        return thresholds
-
     def _process_levels_arg(self, levels):
         """
         Accept a percentage or dimensionless or map unit input for contours.
@@ -2482,8 +2443,47 @@ class GenericMap(NDData):
         else:
             # Map data has no units, but levels doesn't have dimensionless units
             raise u.UnitsError("This map has no unit, so levels can only be specified in percent "
-                               "or in u.dimensionless_unscaled units.")
+                            "or in u.dimensionless_unscaled units.")
 
+    def _calculate_contour_levels_by_area(self, levels):
+        """
+        Calculate contour levels based on area covered.
+        Parameters
+        ----------
+        levels : array_like
+            An array-like object specifying the percentages of the total area to be contained within the generated contour levels.
+            This can be a single value or an array of values representing the desired percentages, where each value should be in the range [0, 1].
+
+        Returns
+        -------
+        thresholds : ndarray
+            An array of threshold values representing the data values below which the specified percentages of the total area are contained.
+            The length of this array is equal to the length of the input `levels`.
+
+        Notes
+        -----
+        This function calculates contour levels based on the area contained within them relative to the maximum value in the data.
+        It normalizes the data, sorts the normalized values, calculates the cumulative sum, and finds thresholds corresponding to the specified percentages of the total area.
+        The thresholds are then returned as an array.
+        """
+        # Derived from a source at https://gist.github.com/settwi/5d3f34b79843df00c2058ec1d49da2ea.
+        levels = self._process_levels_arg(levels)
+
+        normalized_data = (self.data - np.nanmin(self.data)) / (np.nanmax(self.data) - np.nanmin(self.data))
+        print('normalized_data', normalized_data)
+        sorted_data = np.sort(normalized_data.flatten())[::-1]
+        print('sorted_data', sorted_data)
+        sorted_data = sorted_data[~np.isnan(sorted_data)]
+        print('sorted_data', sorted_data)
+        cumulative_sum = np.cumsum(sorted_data)
+        print('cumulative_sum', cumulative_sum)
+        cumulative_sum /= cumulative_sum.max()
+        print('cumulative_sum', cumulative_sum)
+        indices = np.searchsorted(cumulative_sum, levels)
+        print('indices', indices)
+        thresholds = np.sort(sorted_data[indices])
+        print('thresholds', thresholds)
+        return thresholds
 
     def _update_contour_args(self, contour_args):
         """
@@ -2549,6 +2549,12 @@ class GenericMap(NDData):
             Determines the style of the contours:
             - If `False` (default), contours are drawn as lines using :meth:`~matplotlib.axes.Axes.contour`.
             - If `True`, contours are drawn as filled regions using :meth:`~matplotlib.axes.Axes.contourf`.
+        area_based : bool, optional
+            If `True`, the contour level is interpreted as the fraction of
+            the total area of the map data. The contour is drawn at the value
+            that corresponds to the specified fraction of area. If `False`,
+            the contour is drawn at the specified level value.
+            Defaults to `False`.
 
         Returns
         -------
@@ -2866,7 +2872,7 @@ class GenericMap(NDData):
         contours = [self.wcs.array_index_to_world(c[:, 0], c[:, 1]) for c in contours]
         return contours
 
-    def find_contours(self, level, method='contourpy',**kwargs):
+    def find_contours(self, level, method='contourpy', **kwargs):
         """
         Returns coordinates of the contours for a given level value.
 
@@ -2882,12 +2888,6 @@ class GenericMap(NDData):
             Determines which contouring method is used and should
             be specified as either 'contourpy' or 'skimage'.
             Defaults to 'contourpy'.
-        area_based : bool, optional
-            If `True`, the contour level is interpreted as the fraction of
-            the total area of the map data. The contour is drawn at the value
-            that corresponds to the specified fraction of area. If `False`,
-            the contour is drawn at the specified level value.
-            Defaults to `False`.
         kwargs :
             Additional keyword arguments passed to either :func:`contourpy.contour_generator`
             or :func:`skimage.measure.find_contours`, depending on the value of the ``method`` argument.
