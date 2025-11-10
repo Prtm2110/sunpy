@@ -51,7 +51,7 @@ To still show only the last segment you can add a tilde as prefix:
 will render as `~.GenericMap.peek` or `~.CompositeMap.peek`.
 
 Other packages can also be linked via
-`intersphinx <http://www.sphinx-doc.org/en/master/ext/intersphinx.html>`__:
+`intersphinx <https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html>`__:
 
 .. code-block:: rst
 
@@ -149,7 +149,7 @@ Sphinx
 ======
 
 All of the sunpy documentation (like this page) is built by `Sphinx <https://www.sphinx-doc.org/en/stable/>`__, which is a tool especially well-suited for documenting Python projects.
-Sphinx works by parsing files written using a `a Mediawiki-like syntax <http://docutils.sourceforge.net/docs/user/rst/quickstart.html>`__ called `reStructuredText <http://docutils.sourceforge.net/rst.html>`__.
+Sphinx works by parsing files written using a `a Mediawiki-like syntax <https://docutils.sourceforge.io/docs/user/rst/quickstart.html>`__ called `reStructuredText <https://docutils.sourceforge.io/rst.html>`__.
 In addition to parsing static files of reStructuredText, Sphinx can also be told to parse code comments.
 In fact, in addition to what you are reading right now, the `Python documentation <https://www.python.org/doc/>`__ was also created using Sphinx.
 
@@ -184,7 +184,7 @@ Then change to the :file:`docs/` directory and run::
 
     make html
 
-For more information on how to use Sphinx, consult the `Sphinx documentation <http://www.sphinx-doc.org/en/stable/contents.html>`__.
+For more information on how to use Sphinx, consult the `Sphinx documentation <https://www.sphinx-doc.org/en/master/contents.html>`__.
 
 Special Sphinx directives
 -------------------------

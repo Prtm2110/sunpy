@@ -7,6 +7,8 @@ import os
 import sys
 import datetime
 import warnings
+import tokenize
+from pathlib import Path
 
 from packaging.version import Version
 
@@ -93,15 +95,26 @@ sunpy.log.setLevel(ori_level)
 
 # For the linkcheck
 linkcheck_ignore = [
-    r"https://doi.org/\d+",
+    r"https://doi\.org/\d+",
     r"https://\w\.element\.io/",
     # Checking all the PR URLs in the changelog takes a very long time
-    r"https://github.com/sunpy/sunpy/pull/\d+",
+    r"https://github\.com/sunpy/sunpy/pull/\d+",
+    # Avoid self-referencing links
     r"https://docs\.sunpy\.org",
-    r"https://inis.iaea.org/collection/NCLCollectionStore/_Public/20/062/20062491.pdf",
-    r"https://xrt.cfa.harvard.edu/",
+    # Large PDF, so it is too slow to check
+    r"https://inis\.iaea\.org/collection/NCLCollectionStore/_Public/20/062/20062491\.pdf",
+    # These fails on SSL but are valid in a browser
+    r"https://xrt\.cfa\.harvard\.edu/",
+    r"https://opencv\.org",
+    r"https://punch\.space\.swri\.edu",
+    # This is super slow to check
+    r"https://mathesaurus\.sourceforge\.net/idl-numpy\.html",
+    # You have to be logged into GitHub in order to project wide issue searches
+    r"https://github.com/issues?.*"
 ]
 linkcheck_anchors = False
+linkcheck_timeout = 120
+linkcheck_workers = 10
 
 # -- General configuration ---------------------------------------------------
 
@@ -111,9 +124,7 @@ maximum_signature_line_length = 80
 ogp_image = "https://raw.githubusercontent.com/sunpy/sunpy-logo/master/generated/sunpy_logo_word.png"
 ogp_use_first_image = True
 ogp_description_length = 160
-ogp_custom_meta_tags = [
-    '<meta property="og:ignore_canonical" content="true" />',
-]
+ogp_custom_meta_tags = ('<meta property="og:ignore_canonical" content="true" />',)
 
 # Suppress warnings about overriding directives as we overload some of the
 # doctest extensions.
@@ -139,7 +150,6 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.todo',
-    'sphinx.ext.viewcode',
     'sunpy.util.sphinx.doctest',
     'sunpy.util.sphinx.generate',
     "sphinxext.opengraph",
@@ -169,6 +179,7 @@ if is_release:
     exclude_patterns.append('dev_guide/contents/*')
 
 # The suffix(es) of source filenames.
+# You can specify multiple suffix as a dict:
 source_suffix = {".rst": "restructuredtext"}
 
 # The master toctree document.
@@ -269,6 +280,75 @@ autoclass_content = "both"
 
 bibtex_bibfiles = ['references.bib']
 
+# -- Linking to source code ----------------------------------------------------
+
+link_github = True
+# You can add build old with link_github = False
+
+if link_github:
+    import inspect
+
+    extensions.append('sphinx.ext.linkcode')
+
+    def linkcode_resolve(domain, info):
+        """
+        Determine the URL corresponding to Python object
+        """
+        if domain != 'py':
+            return None
+
+        modname = info['module']
+        fullname = info['fullname']
+
+        submod = sys.modules.get(modname)
+        if submod is None:
+            return None
+
+        obj = submod
+        for part in fullname.split('.'):
+            try:
+                obj = getattr(obj, part)
+            except AttributeError:
+                return None
+
+        if inspect.isfunction(obj):
+            obj = inspect.unwrap(obj)
+        try:
+            fn = inspect.getsourcefile(obj)
+        except TypeError:
+            fn = None
+        if not fn or fn.endswith('__init__.py'):
+            try:
+                fn = inspect.getsourcefile(sys.modules[obj.__module__])
+            except (TypeError, AttributeError, KeyError):
+                fn = None
+        if not fn:
+            return None
+
+        try:
+            source, lineno = inspect.getsourcelines(obj)
+        except (OSError, TypeError, tokenize.TokenError):
+            if hasattr(obj, '__qualname__'):
+                print(f"linkcode_resolve: could not get source for {obj.__module__}.{obj.__qualname__}")
+            lineno = None
+
+        linespec = (f"#L{lineno:d}-L{lineno + len(source) - 1:d}"
+                    if lineno else "")
+
+        startdir = Path(sunpy.__file__).parent.parent
+        try:
+            fn = os.path.relpath(fn, start=startdir).replace(os.path.sep, '/')
+        except ValueError:
+            return None
+
+        if not fn.startswith('sunpy/'):
+            return None
+
+        tag = 'main' if is_development else f'v{_version.public}'
+        return (f"https://github.com/sunpy/sunpy/blob/{tag}/{fn}{linespec}")
+else:
+    extensions.append('sphinx.ext.viewcode')
+
 # -- Sphinx Gallery ------------------------------------------------------------
 
 # JSOC email os env
@@ -300,6 +380,7 @@ sphinx_gallery_conf = {
     'remove_config_comments': True,
     'doc_module': ('sunpy'),
     'only_warn_on_example_error': True,
+    'parallel': True,
 }
 
 # -- Linking to OpenCV docs by using rst_epilog --------------------------------

@@ -28,7 +28,7 @@ from astropy.utils.data import download_file
 from sunpy import log
 from sunpy.sun.constants import radius as _RSUN
 from sunpy.time.time import _variables_for_parse_time_docstring
-from sunpy.util.decorators import add_common_docstring, deprecated, sunpycontextmanager
+from sunpy.util.decorators import add_common_docstring
 from sunpy.util.exceptions import warn_user
 from .frameattributes import ObserverCoordinateAttribute, TimeFrameAttributeSunPy
 
@@ -440,18 +440,35 @@ class Heliocentric(SunPyBaseCoordinateFrame):
 @add_common_docstring(**_frame_parameters())
 class Helioprojective(SunPyBaseCoordinateFrame):
     """
-    A coordinate or frame in the Helioprojective Cartesian (HPC) system, which is observer-based.
+    A coordinate or frame in the Helioprojective Cartesian (HPC) system.
 
-    - The origin is the location of the observer.
-    - ``Tx`` (aka "theta_x") is the angle relative to the plane containing the Sun-observer line
-      and the Sun's rotation axis, with positive values in the direction of the Sun's west limb.
-    - ``Ty`` (aka "theta_y") is the angle relative to the Sun's equatorial plane, with positive
-      values in the direction of the Sun's north pole.
-    - ``distance`` is the Sun-observer distance.
+    This is an observer-based spherical coordinate system, with:
 
-    This system is frequently used in a projective form without ``distance`` specified. For
-    observations looking very close to the center of the Sun, where the small-angle approximation
-    is appropriate, ``Tx`` and ``Ty`` can be approximated as Cartesian components.
+    - The origin is the observer location.
+    - The line connecting the poles of the frame is parallel to the component of the Sun's
+      rotation axis that is perpendicular to the observer-Sun line.
+    - ``Tx`` (short for "theta_x", or :math:`\\theta_x`) is the longitude, the angle relative to
+      the plane containing the observer-Sun line and the poles of the frame, with positive values
+      in the direction of the Sun's west limb.
+    - ``Ty`` (short for "theta_y", or :math:`\\theta_y`) is the latitude, the angle relative to the
+      plane that is perpendicular to the poles of the frame, with positive values in the direction
+      of the Sun's north pole.
+    - ``distance`` is the observer-object distance.
+
+    .. note::
+        It can be confusing that the name of this coordinate system uses the adjective "Cartesian"
+        despite being a spherical coordinate system. The reason for this name is because close to
+        the center of the Sun where the small-angle approximation is appropriate, ``Tx`` and ``Ty``
+        can be thought of as two components of a Cartesian-like coordinate system. The corresponding
+        third Cartesian-like component, sometimes called zeta (:math:`\\zeta`), is defined to be the
+        Sun-observer distance (``observer.radius``) minus the observer-object distance (``distance``).
+
+    This system is frequently used in a projective form without ``distance`` specified. When
+    transforming such a 2D coordinate to another frame, the object location usually needs to be
+    fully 3D, which is achieved by calling :meth:`.make_3d` to generate the ``distance`` component.
+    The default assumption is that the object lies on the surface of the Sun if the 2D coordinate is
+    on the solar disk, but is otherwise undefined if the 2D coordinate is beyond the solar limb.
+    This assumption can be modified using a screen (e.g., :func:`~sunpy.coordinates.SphericalScreen`).
 
     A new instance can be created using the following signatures
     (note that if supplied, ``obstime`` and ``observer`` must be keyword arguments)::
@@ -463,15 +480,19 @@ class Helioprojective(SunPyBaseCoordinateFrame):
     ----------
     {data}
     Tx : `~astropy.coordinates.Angle` or `~astropy.units.Quantity`
-        The theta_x coordinate for this object. Not needed if ``data`` is given.
+        The theta_x (:math:`\\theta_x`) component for this object. Not needed if ``data`` is given.
     Ty : `~astropy.coordinates.Angle` or `~astropy.units.Quantity`
-        The theta_y coordinate for this object. Not needed if ``data`` is given.
+        The theta_y (:math:`\\theta_y`) component for this object. Not needed if ``data`` is given.
     distance : `~astropy.units.Quantity`
-        The distance coordinate from the observer for this object.
-        Not needed if ``data`` is given.
+        The distance component from the observer for this object. Not needed if ``data`` is given.
     {observer}
     {rsun}
     {common}
+
+    See Also
+    --------
+    HelioprojectiveRadial
+    ~sunpy.coordinates.PlanarScreen, ~sunpy.coordinates.SphericalScreen
 
     Examples
     --------
@@ -507,6 +528,7 @@ class Helioprojective(SunPyBaseCoordinateFrame):
 
     rsun = QuantityAttribute(default=_RSUN, unit=u.km)
     observer = ObserverCoordinateAttribute(HeliographicStonyhurst)
+    _assumed_screen = None
 
     @property
     def angular_radius(self):
@@ -666,21 +688,6 @@ class Helioprojective(SunPyBaseCoordinateFrame):
         is_on_near_side = data.dot(data_to_sun) >= 0
 
         return is_behind_observer | is_beyond_limb | (is_on_near_side & is_above_surface)
-
-    _assumed_screen = None
-
-    @classmethod
-    @sunpycontextmanager
-    @deprecated('6.0', alternative='sunpy.coordinates.screens.SphericalScreen')
-    def assume_spherical_screen(cls, center, only_off_disk=False, *, radius=None):
-        try:
-            old_assumed_screen = cls._assumed_screen  # nominally None
-            from sunpy.coordinates import SphericalScreen
-            sph_screen = SphericalScreen(center, radius=radius, only_off_disk=only_off_disk)
-            cls._assumed_screen = sph_screen
-            yield
-        finally:
-            cls._assumed_screen = old_assumed_screen
 
 
 @add_common_docstring(**_frame_parameters())

@@ -60,6 +60,7 @@ def test_read_asdf_and_verify(tmpdir):
     assert isinstance(loaded_asdf_map, sunpy.map.sources.AIAMap)
 
 
+@asdf_entry_points
 def test_map_meta_changes_in_asdf(tmpdir):
     map = sunpy.map.Map(AIA_171_IMAGE)
     map = map.rotate(90 * u.deg)
@@ -282,13 +283,14 @@ def test_uri_pattern():
 
 @pytest.mark.remote_data
 @pytest.mark.filterwarnings("ignore:datetime.datetime.utcnow:DeprecationWarning")
+@pytest.mark.filterwarnings("ignore:The ANA reader may be removed in a future version of sunpy")
 def test_uri_directory_pattern():
     """
     Testing publicly accessible s3 directory
     """
     with pytest.warns(SunpyUserWarning, match='Failed to read'):
         amap = sunpy.map.Map('s3://data.sunpy.org/aiapy', fsspec_kwargs={'anon':True}, allow_errors=True)
-        assert all(isinstance(am, sunpy.map.GenericMap) for am in amap)
+    assert all(isinstance(am, sunpy.map.GenericMap) for am in amap)
 
 
 def test_save():
@@ -396,16 +398,16 @@ def test_map_list_of_files_with_one_broken():
     files = [AIA_171_IMAGE, get_test_filepath('not_actually_fits.fits')]
     with pytest.warns(SunpyUserWarning, match='Failed to read'):
         amap = sunpy.map.Map(files, allow_errors=True)
-        assert amap.data.shape == (128, 128)
+    assert amap.data.shape == (128, 128)
 
     files = [AIA_171_IMAGE, get_test_filepath('not_actually_fits.fits'), AIA_171_IMAGE]
     with pytest.warns(SunpyUserWarning, match='Failed to read'):
         amap = sunpy.map.Map(files, allow_errors=True)
-        assert len(amap) == 2
+    assert len(amap) == 2
 
     with pytest.warns(SunpyUserWarning, match='Failed to read'):
         amap = sunpy.map.Map(files, allow_errors=True, sequence=True)
-        assert len(amap) == 2
+    assert len(amap) == 2
 
     with pytest.raises(OSError, match='Failed to read'):
         sunpy.map.Map(files, allow_errors=False)
